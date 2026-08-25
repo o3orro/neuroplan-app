@@ -50,46 +50,72 @@ pipeline {
             steps {
                 script {
 
+                    echo "===== Detect Changes ====="
+
+                    // 현재 최신 커밋에서 변경된 파일 목록 확인
                     def changedFilesText = sh(
                         script: '''
-                            git show --name-only --pretty="" HEAD
+                            git -c color.ui=false show \
+                              --name-only \
+                              --pretty="" \
+                              HEAD | sed '/^[[:space:]]*$/d'
                         ''',
                         returnStdout: true
                     ).trim()
 
 
-                    def changedFiles =
-                        changedFilesText ?
-                        changedFilesText.readLines() :
-                        []
-
-
                     echo "===== Changed Files ====="
 
-                    if (changedFiles.isEmpty()) {
-
-                        echo "No changed files detected."
-
+                    if (changedFilesText) {
+                        echo "${changedFilesText}"
                     } else {
-
-                        changedFiles.each {
-                            echo "${it}"
-                        }
+                        echo "No changed files detected."
                     }
 
 
-                    env.FRONTEND_CHANGED =
-                        changedFiles.any {
-                            it.startsWith('frontend/')
-                        } ? 'true' : 'false'
+                    // frontend/ 디렉터리 변경 확인
+                    def frontendStatus = sh(
+                        script: '''
+                            git -c color.ui=false show \
+                              --name-only \
+                              --pretty="" \
+                              HEAD \
+                            | sed '/^[[:space:]]*$/d' \
+                            | grep -q '^frontend/'
+                        ''',
+                        returnStatus: true
+                    )
 
 
-                    env.BACKEND_CHANGED =
-                        changedFiles.any {
-                            it.startsWith('backend/')
-                        } ? 'true' : 'false'
+                    // backend/ 디렉터리 변경 확인
+                    def backendStatus = sh(
+                        script: '''
+                            git -c color.ui=false show \
+                              --name-only \
+                              --pretty="" \
+                              HEAD \
+                            | sed '/^[[:space:]]*$/d' \
+                            | grep -q '^backend/'
+                        ''',
+                        returnStatus: true
+                    )
 
 
+                    if (frontendStatus == 0) {
+                        env.FRONTEND_CHANGED = 'true'
+                    } else {
+                        env.FRONTEND_CHANGED = 'false'
+                    }
+
+
+                    if (backendStatus == 0) {
+                        env.BACKEND_CHANGED = 'true'
+                    } else {
+                        env.BACKEND_CHANGED = 'false'
+                    }
+
+
+                    echo "===== Change Detection Result ====="
                     echo "Frontend changed: ${env.FRONTEND_CHANGED}"
                     echo "Backend changed : ${env.BACKEND_CHANGED}"
                 }
@@ -174,6 +200,8 @@ pipeline {
                 ]) {
                     sh '''
                         set -e
+
+                        echo "===== Docker Hub Login ====="
 
                         echo "$DOCKERHUB_TOKEN" | \
                         docker login \
