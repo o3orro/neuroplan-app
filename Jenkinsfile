@@ -49,35 +49,46 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    def changedFiles = []
 
-                    for (changeLogSet in currentBuild.changeSets) {
-                        for (entry in changeLogSet.items) {
-                            for (file in entry.affectedFiles) {
-                                changedFiles.add(file.path)
-                            }
-                        }
-                    }
+                    def changedFilesText = sh(
+                        script: '''
+                            git show --name-only --pretty="" HEAD
+                        ''',
+                        returnStdout: true
+                    ).trim()
+
+
+                    def changedFiles =
+                        changedFilesText ?
+                        changedFilesText.readLines() :
+                        []
+
 
                     echo "===== Changed Files ====="
 
                     if (changedFiles.isEmpty()) {
+
                         echo "No changed files detected."
+
                     } else {
-                        changedFiles.unique().each {
+
+                        changedFiles.each {
                             echo "${it}"
                         }
                     }
+
 
                     env.FRONTEND_CHANGED =
                         changedFiles.any {
                             it.startsWith('frontend/')
                         } ? 'true' : 'false'
 
+
                     env.BACKEND_CHANGED =
                         changedFiles.any {
                             it.startsWith('backend/')
                         } ? 'true' : 'false'
+
 
                     echo "Frontend changed: ${env.FRONTEND_CHANGED}"
                     echo "Backend changed : ${env.BACKEND_CHANGED}"
