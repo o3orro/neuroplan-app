@@ -14,9 +14,6 @@ pipeline {
         FRONTEND_MANIFEST = 'manifests/frontend-deployment.yaml'
         BACKEND_MANIFEST  = 'manifests/backend-deployment.yaml'
 
-        // Change Detection
-        FRONTEND_CHANGED = 'false'
-        BACKEND_CHANGED  = 'false'
     }
 
     stages {
