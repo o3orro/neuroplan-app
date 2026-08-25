@@ -49,49 +49,35 @@ pipeline {
         stage('Detect Changes') {
             steps {
                 script {
-                    def baseCommit = sh(
-                        script: '''
-                            if [ -n "$GIT_PREVIOUS_SUCCESSFUL_COMMIT" ] && \
-                               git cat-file -e "$GIT_PREVIOUS_SUCCESSFUL_COMMIT^{commit}" 2>/dev/null
-                            then
-                                echo "$GIT_PREVIOUS_SUCCESSFUL_COMMIT"
+                    def changedFiles = []
 
-                            elif git rev-parse HEAD^ >/dev/null 2>&1
-                            then
-                                git rev-parse HEAD^
-
-                            else
-                                echo ""
-                            fi
-                        ''',
-                        returnStdout: true
-                    ).trim()
-
-                    if (!baseCommit) {
-
-                        echo "No previous commit found. Build both applications."
-
-                        env.FRONTEND_CHANGED = 'true'
-                        env.BACKEND_CHANGED  = 'true'
-
-                    } else {
-
-                        def changedFiles = sh(
-                            script: "git diff --name-only ${baseCommit} HEAD",
-                            returnStdout: true
-                        ).trim()
-
-                        echo "===== Changed Files ====="
-                        echo changedFiles ?: "No application files changed."
-
-                        def files = changedFiles ? changedFiles.readLines() : []
-
-                        env.FRONTEND_CHANGED =
-                            files.any { it.startsWith('frontend/') } ? 'true' : 'false'
-
-                        env.BACKEND_CHANGED =
-                            files.any { it.startsWith('backend/') } ? 'true' : 'false'
+                    for (changeLogSet in currentBuild.changeSets) {
+                        for (entry in changeLogSet.items) {
+                            for (file in entry.affectedFiles) {
+                                changedFiles.add(file.path)
+                            }
+                        }
                     }
+
+                    echo "===== Changed Files ====="
+
+                    if (changedFiles.isEmpty()) {
+                        echo "No changed files detected."
+                    } else {
+                        changedFiles.unique().each {
+                            echo "${it}"
+                        }
+                    }
+
+                    env.FRONTEND_CHANGED =
+                        changedFiles.any {
+                            it.startsWith('frontend/')
+                        } ? 'true' : 'false'
+
+                    env.BACKEND_CHANGED =
+                        changedFiles.any {
+                            it.startsWith('backend/')
+                        } ? 'true' : 'false'
 
                     echo "Frontend changed: ${env.FRONTEND_CHANGED}"
                     echo "Backend changed : ${env.BACKEND_CHANGED}"
@@ -111,6 +97,7 @@ pipeline {
                 dir('backend') {
                     sh '''
                         echo "===== Backend Maven Build ====="
+
                         mvn clean package -DskipTests
                     '''
                 }
@@ -259,6 +246,8 @@ pipeline {
 
                         cd gitops-repo
 
+
+                        echo "===== Configure Git ====="
 
                         git config user.name "Jenkins"
                         git config user.email "jenkins@nplan.local"
