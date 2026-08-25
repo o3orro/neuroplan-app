@@ -1,3 +1,6 @@
-FROM alpine:latest
+FROM nginx:alpine
 
-CMD ["echo", "NeuroPlan Jenkins CI Success"]
+RUN echo '<h1>NeuroPlan CI/CD Success</h1>' \
+    > /usr/share/nginx/html/index.html
+
+EXPOSE 80
