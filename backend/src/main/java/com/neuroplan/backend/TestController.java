@@ -12,7 +12,7 @@ public class TestController {
     public Map<String, String> home() {
         return Map.of(
             "service", "NeuroPlan Backend",
-            "message", "Backend Deployment"
+            "message", "askjfdljdsklafj lkBackend Deployment"
         );
     }
 
